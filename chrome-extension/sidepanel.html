@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Channel</title>
+<link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+
+<header>
+  <div class="info">
+    <h1>Channel</h1>
+  </div>
+  <button class="btn-icon settings-btn" id="settings-btn" title="Settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+  <button class="clear-btn" id="clear-btn" title="Clear chat history">Clear</button>
+</header>
+
+<div id="messages">
+  <div id="welcome">
+    <div class="welcome-icon"><svg viewBox="0 0 100 100" width="32" height="32" fill="#fff"><circle cx="50" cy="14" r="6"/><circle cx="50" cy="86" r="6"/><circle cx="14" cy="50" r="6"/><circle cx="86" cy="50" r="6"/><circle cx="24.6" cy="24.6" r="6"/><circle cx="75.4" cy="75.4" r="6"/><circle cx="75.4" cy="24.6" r="6"/><circle cx="24.6" cy="75.4" r="6"/><line x1="50" y1="14" x2="50" y2="50" stroke="#fff" stroke-width="7" stroke-linecap="round"/><line x1="50" y1="86" x2="50" y2="50" stroke="#fff" stroke-width="7" stroke-linecap="round"/><line x1="14" y1="50" x2="50" y2="50" stroke="#fff" stroke-width="7" stroke-linecap="round"/><line x1="86" y1="50" x2="50" y2="50" stroke="#fff" stroke-width="7" stroke-linecap="round"/><line x1="24.6" y1="24.6" x2="50" y2="50" stroke="#fff" stroke-width="7" stroke-linecap="round"/><line x1="75.4" y1="75.4" x2="50" y2="50" stroke="#fff" stroke-width="7" stroke-linecap="round"/><line x1="75.4" y1="24.6" x2="50" y2="50" stroke="#fff" stroke-width="7" stroke-linecap="round"/><line x1="24.6" y1="75.4" x2="50" y2="50" stroke="#fff" stroke-width="7" stroke-linecap="round"/></svg></div>
+    <h2>Channel</h2>
+    <p>Chat with Claude Code from any page</p>
+  </div>
+</div>
+
+<div id="drop-overlay">
+  <div class="drop-icon">+</div>
+  <p>Drop image to attach</p>
+</div>
+
+<div id="preview-strip"></div>
+
+<div id="input-area">
+  <div id="input-bar">
+    <textarea id="input" rows="1" placeholder="Message Claude Code..." autocomplete="off"></textarea>
+    <input type="file" id="file-input" accept="image/*" multiple />
+    <button class="btn-icon" id="attach-btn" title="Attach image">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+    </button>
+    <button class="btn-icon send-btn" id="send-btn" title="Send">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
+</div>
+
+<script src="sidepanel.js"></script>
+</body>
+</html>

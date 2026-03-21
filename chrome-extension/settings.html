@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Channel Settings</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: #f8f9fa;
+    color: #1a1a2e;
+    padding: 24px;
+    min-width: 320px;
+  }
+  h1 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h1 .logo {
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #D97757, #c4623f);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; color: #fff; font-weight: 600;
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(26,26,46,0.6);
+    margin-bottom: 6px;
+  }
+  input[type="url"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 13px;
+    background: #fff;
+    color: #1a1a2e;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  input[type="url"]:focus {
+    border-color: rgba(217, 119, 87, 0.5);
+    box-shadow: 0 0 0 3px rgba(217, 119, 87, 0.1);
+  }
+  .hint {
+    font-size: 11px;
+    color: rgba(26,26,46,0.4);
+    margin-top: 6px;
+  }
+  button {
+    margin-top: 16px;
+    padding: 8px 20px;
+    border: none;
+    border-radius: 8px;
+    background: #D97757;
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  button:hover { background: #c4623f; }
+  .saved {
+    display: inline-block;
+    margin-left: 10px;
+    font-size: 12px;
+    color: #22c55e;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .saved.show { opacity: 1; }
+</style>
+</head>
+<body>
+  <h1><span class="logo">✦</span> Channel Settings</h1>
+  <label for="url-input">Claude Code Server URL</label>
+  <input type="url" id="url-input" placeholder="http://127.0.0.1:8788" />
+  <div class="hint">The URL where your webhook server is running (bun ./webhook.ts)</div>
+  <button id="save-btn">Save</button>
+  <span class="saved" id="saved-msg">Saved!</span>
+
+  <script>
+    const urlInput = document.getElementById('url-input');
+    const saveBtn = document.getElementById('save-btn');
+    const savedMsg = document.getElementById('saved-msg');
+    const DEFAULT_URL = 'http://127.0.0.1:8788';
+
+    chrome.storage.local.get('apiBase', (data) => {
+      urlInput.value = data.apiBase || DEFAULT_URL;
+    });
+
+    saveBtn.addEventListener('click', () => {
+      const val = urlInput.value.trim().replace(/\/+$/, '') || DEFAULT_URL;
+      urlInput.value = val;
+      chrome.storage.local.set({ apiBase: val }, () => {
+        savedMsg.classList.add('show');
+        setTimeout(() => savedMsg.classList.remove('show'), 2000);
+      });
+    });
+  </script>
+</body>
+</html>
