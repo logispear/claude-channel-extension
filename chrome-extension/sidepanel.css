@@ -108,6 +108,7 @@ header .clear-btn:hover {
 #messages {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px 12px;
   display: flex;
   flex-direction: column;
@@ -115,6 +116,7 @@ header .clear-btn:hover {
   scroll-behavior: smooth;
   scrollbar-width: thin;
   scrollbar-color: rgba(0,0,0,0.1) transparent;
+  min-width: 0;
 }
 
 #messages::-webkit-scrollbar { width: 4px; }
@@ -129,6 +131,7 @@ header .clear-btn:hover {
   display: flex;
   flex-direction: column;
   max-width: 88%;
+  min-width: 0;
   animation: msgIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -157,7 +160,11 @@ header .clear-btn:hover {
   font-size: 13px;
   white-space: pre-wrap;
   word-wrap: break-word;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   letter-spacing: -0.005em;
+  min-width: 0;
+  overflow-x: hidden;
 }
 
 .msg-row.user .bubble {
