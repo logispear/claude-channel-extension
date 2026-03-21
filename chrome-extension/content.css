@@ -1,0 +1,20 @@
+/* Element Picker Styles */
+#claude-picker-overlay {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid #D97757;
+  background: rgba(217, 119, 87, 0.15);
+  border-radius: 4px;
+  z-index: 2147483647;
+  display: none;
+  transition: top 0.05s, left 0.05s, width 0.05s, height 0.05s;
+  box-shadow: 0 0 0 2px rgba(217, 119, 87, 0.3);
+}
+
+body.claude-picker-active {
+  cursor: crosshair !important;
+}
+
+body.claude-picker-active * {
+  cursor: crosshair !important;
+}

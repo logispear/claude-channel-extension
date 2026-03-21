@@ -6,8 +6,16 @@ import {
   CallToolRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 
-// SSE clients waiting for replies
-const sseClients = new Set<ReadableStreamDefaultController>()
+// Store pending responses for polling
+const pendingResponses: { chat_id: string; text: string; timestamp: number }[] = []
+
+// Clean old responses after 5 minutes
+setInterval(() => {
+  const now = Date.now()
+  while (pendingResponses.length > 0 && now - pendingResponses[0].timestamp > 300000) {
+    pendingResponses.shift()
+  }
+}, 60000)
 
 // Create the MCP server and declare it as a channel
 const mcp = new Server(
@@ -56,14 +64,8 @@ mcp.setRequestHandler(CallToolRequestSchema, async (req) => {
       chat_id: string
       text: string
     }
-    const event = JSON.stringify({ chat_id, text })
-    for (const controller of sseClients) {
-      try {
-        controller.enqueue(`data: ${event}\n\n`)
-      } catch {
-        sseClients.delete(controller)
-      }
-    }
+    // Store response for polling
+    pendingResponses.push({ chat_id, text, timestamp: Date.now() })
     return { content: [{ type: 'text', text: 'sent' }] }
   }
   throw new Error(`unknown tool: ${req.params.name}`)
@@ -339,22 +341,14 @@ Bun.serve({
       })
     }
 
-    // SSE endpoint for Claude's replies
-    if (url.pathname === '/api/events' && req.method === 'GET') {
-      const stream = new ReadableStream({
-        start(controller) {
-          sseClients.add(controller)
-          controller.enqueue(': connected\n\n')
-        },
-        cancel(controller) {
-          sseClients.delete(controller)
-        },
-      })
-      return new Response(stream, {
+    // Polling endpoint for Claude's replies
+    if (url.pathname === '/api/poll' && req.method === 'GET') {
+      // Return all pending responses and clear them
+      const responses = [...pendingResponses]
+      pendingResponses.length = 0
+      return new Response(JSON.stringify(responses), {
         headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          Connection: 'keep-alive',
+          'Content-Type': 'application/json',
           ...cors,
         },
       })

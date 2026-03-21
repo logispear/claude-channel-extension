@@ -267,6 +267,34 @@ header .clear-btn:hover {
 
 .preview-item:hover .remove-btn { opacity: 1; }
 
+/* Element chip in preview */
+.preview-item.element-chip {
+  width: auto;
+  height: auto;
+  padding: 4px 8px;
+  padding-right: 24px;
+  display: flex;
+  align-items: center;
+  background: var(--accent-light, rgba(217, 119, 87, 0.1));
+  border-color: var(--accent);
+}
+
+.preview-item.element-chip .element-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  font-family: 'SF Mono', Monaco, 'Consolas', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.preview-item.element-chip .remove-btn {
+  opacity: 1;
+  background: var(--accent);
+}
+
 /* Input area */
 #input-area {
   padding: 8px 10px 12px 10px;

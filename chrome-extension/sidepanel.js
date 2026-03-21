@@ -11,11 +11,12 @@ const previewStrip = document.getElementById('preview-strip');
 const dropOverlay = document.getElementById('drop-overlay');
 const clearBtn = document.getElementById('clear-btn');
 const settingsBtn = document.getElementById('settings-btn');
+const pickBtn = document.getElementById('pick-btn');
 
 const STORAGE_KEY = 'claude-ext-chat-history';
 let pendingImages = [];
+let pendingElements = [];
 let connected = false;
-let currentES = null;
 
 function timeStr() {
   return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -26,22 +27,19 @@ settingsBtn.addEventListener('click', () => {
   chrome.runtime.openOptionsPage();
 });
 
-// Load URL from storage, then start SSE
+// Load URL from storage, then start polling
 chrome.storage.local.get('apiBase', (data) => {
   API_BASE = data.apiBase || DEFAULT_API_BASE;
-  connectSSE();
+  startPolling();
 });
 
 // React to settings changes live
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.apiBase) {
     API_BASE = changes.apiBase.newValue || DEFAULT_API_BASE;
-    // Reconnect with new URL
-    if (currentES) {
-      currentES.close();
-      currentES = null;
-    }
-    connectSSE();
+    // Restart polling with new URL
+    stopPolling();
+    startPolling();
   }
 });
 
@@ -146,11 +144,13 @@ function addImageFiles(files) {
 
 function renderPreviews() {
   previewStrip.innerHTML = '';
-  if (pendingImages.length === 0) {
+  if (pendingImages.length === 0 && pendingElements.length === 0) {
     previewStrip.classList.remove('active');
     return;
   }
   previewStrip.classList.add('active');
+
+  // Render image previews
   pendingImages.forEach((item, i) => {
     const wrap = document.createElement('div');
     wrap.className = 'preview-item';
@@ -164,12 +164,75 @@ function renderPreviews() {
     wrap.appendChild(btn);
     previewStrip.appendChild(wrap);
   });
+
+  // Render element previews
+  pendingElements.forEach((item, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'preview-item element-chip';
+    const label = document.createElement('span');
+    label.className = 'element-label';
+    label.textContent = item.label;
+    label.title = item.selector;
+    const btn = document.createElement('button');
+    btn.className = 'remove-btn';
+    btn.textContent = 'x';
+    btn.onclick = () => { pendingElements.splice(i, 1); renderPreviews(); };
+    wrap.appendChild(label);
+    wrap.appendChild(btn);
+    previewStrip.appendChild(wrap);
+  });
 }
 
 attachBtn.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', () => {
   addImageFiles(fileInput.files);
   fileInput.value = '';
+});
+
+// --- Element picker ---
+let currentPickerTabUrl = null;
+
+pickBtn.addEventListener('click', async () => {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id) return;
+
+    // Store the tab URL for when element is picked
+    currentPickerTabUrl = tab.url;
+
+    // Inject content script if not already injected
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content.js']
+      });
+      await chrome.scripting.insertCSS({
+        target: { tabId: tab.id },
+        files: ['content.css']
+      });
+    } catch (e) {
+      // Script may already be injected, continue
+    }
+
+    // Activate picker in the content script
+    chrome.tabs.sendMessage(tab.id, { type: 'ACTIVATE_PICKER' });
+  } catch (err) {
+    console.error('Failed to activate picker:', err);
+  }
+});
+
+// Listen for messages from content script
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'ELEMENT_PICKED') {
+    // Add the page URL to the element data
+    const elementData = {
+      ...msg.data,
+      pageUrl: currentPickerTabUrl || sender.tab?.url || 'unknown'
+    };
+    pendingElements.push(elementData);
+    renderPreviews();
+  }
+  return true;
 });
 
 // --- Drag and drop ---
@@ -231,18 +294,33 @@ function removeTyping() {
 async function send() {
   const text = input.value.trim();
   const images = pendingImages.map(p => p.dataUrl);
-  if (!text && images.length === 0) return;
+  const elements = pendingElements.map(e => ({ html: e.html, selector: e.selector, pageUrl: e.pageUrl }));
+  if (!text && images.length === 0 && elements.length === 0) return;
 
   input.value = '';
   input.style.height = 'auto';
   pendingImages = [];
+  pendingElements = [];
   renderPreviews();
 
-  addMsg(text, 'user', images);
+  // Display text with element references
+  let displayText = text;
+  if (elements.length > 0) {
+    const elementRefs = elements.map(() => '#element').join(' ');
+    displayText = displayText ? displayText + ' ' + elementRefs : elementRefs;
+  }
+  addMsg(displayText, 'user', images);
 
+  // Build content with elements stringified directly
   let content = text;
+  if (elements.length > 0) {
+    const elementParts = elements.map((el, i) =>
+      `[Element ${i + 1}]\nPage: ${el.pageUrl}\nSelector: ${el.selector}\nHTML:\n${el.html}`
+    );
+    content = (content ? content + '\n\n' : '') + 'Selected elements:\n\n' + elementParts.join('\n\n');
+  }
   if (images.length) {
-    content = (text ? text + '\n\n' : '') + images.map(d => '[image: ' + d.substring(0, 60) + '...]').join('\n');
+    content = (content ? content + '\n\n' : '') + images.map(d => '[image: ' + d.substring(0, 60) + '...]').join('\n');
   }
 
   showTyping();
@@ -264,34 +342,56 @@ input.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
 });
 
-// --- SSE connection with auto-reconnect ---
+// --- Polling for responses ---
+const POLL_INTERVAL = 1000; // Poll every 1 second
+let pollTimer = null;
+
 function setStatus(online) {
   connected = online;
-}
-
-function connectSSE() {
-  if (currentES) {
-    currentES.close();
+  const header = document.querySelector('header h1');
+  if (header) {
+    header.style.opacity = online ? '1' : '0.5';
   }
-
-  const es = new EventSource(API_BASE + '/api/events');
-  currentES = es;
-
-  es.onopen = () => setStatus(true);
-
-  es.onmessage = (e) => {
-    removeTyping();
-    const data = JSON.parse(e.data);
-    addMsg(data.text, 'claude', [], null, false);
-  };
-
-  es.onerror = () => {
-    setStatus(false);
-    es.close();
-    currentES = null;
-    // Reconnect after 3 seconds
-    setTimeout(connectSSE, 3000);
-  };
 }
+
+async function pollResponses() {
+  try {
+    const res = await fetch(API_BASE + '/api/poll');
+    if (res.ok) {
+      setStatus(true);
+      const responses = await res.json();
+      for (const r of responses) {
+        removeTyping();
+        addMsg(r.text, 'claude', [], null, false);
+      }
+    } else {
+      setStatus(false);
+    }
+  } catch (err) {
+    setStatus(false);
+  }
+}
+
+function startPolling() {
+  if (pollTimer) return;
+  pollResponses(); // Initial poll
+  pollTimer = setInterval(pollResponses, POLL_INTERVAL);
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+// Pause polling when tab is hidden to save resources
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    startPolling();
+  } else {
+    stopPolling();
+  }
+});
 
 input.focus();
