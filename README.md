@@ -14,6 +14,8 @@ A local MCP server (`webhook.ts`) bridges a Chrome extension to Claude Code:
 
 - **Side panel chat** — open on any page, stays out of your way
 - **Image support** — paste or drag-and-drop screenshots into the chat
+- **Voice mode** — click the mic button to speak, auto-stops on silence
+- **Element picker** — select elements from the page to reference in chat
 - **Real-time streaming** — responses arrive over Server-Sent Events
 - **Configurable port** — change the server address in extension settings
 
@@ -59,6 +61,24 @@ cp webhook.ts ~/webhook.ts
 {
   "mcpServers": {
     "webhook": { "command": "bun", "args": ["/Users/you/webhook.ts"] }
+  }
+}
+```
+
+### Voice Mode (optional)
+
+To enable voice mode with Whisper transcription, add your OpenAI API key to the server configuration:
+
+```json
+{
+  "mcpServers": {
+    "webhook": {
+      "command": "bun",
+      "args": ["/Users/you/webhook.ts"],
+      "env": {
+        "OPENAI_API_KEY": "your-api-key"
+      }
+    }
   }
 }
 ```

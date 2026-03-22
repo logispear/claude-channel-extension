@@ -12,6 +12,7 @@ const dropOverlay = document.getElementById('drop-overlay');
 const clearBtn = document.getElementById('clear-btn');
 const settingsBtn = document.getElementById('settings-btn');
 const pickBtn = document.getElementById('pick-btn');
+const voiceBtn = document.getElementById('voice-btn');
 
 const STORAGE_KEY = 'claude-ext-chat-history';
 let pendingImages = [];
@@ -43,7 +44,7 @@ chrome.storage.onChanged.addListener((changes) => {
   }
 });
 
-// --- Persistence ---
+// --- Persistence (using chrome.storage.local for cross-context access) ---
 function saveHistory() {
   try {
     const msgs = [];
@@ -54,19 +55,27 @@ function saveHistory() {
       const images = Array.from(row.querySelectorAll('.bubble img')).map(img => img.src);
       msgs.push({ sender, text, time, images });
     });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs));
+    chrome.storage.local.set({ chatHistory: msgs });
   } catch {}
 }
 
 function loadHistory() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (!data) return;
-    const msgs = JSON.parse(data);
-    if (!msgs.length) return;
-    if (welcome) welcome.remove();
-    msgs.forEach(m => addMsg(m.text, m.sender, m.images, m.time, true));
-  } catch {}
+  chrome.storage.local.get(['chatHistory', 'pendingVoiceMessages'], (data) => {
+    try {
+      const msgs = data.chatHistory || [];
+      const pending = data.pendingVoiceMessages || [];
+
+      // Merge pending voice messages into history
+      if (pending.length > 0) {
+        msgs.push(...pending);
+        chrome.storage.local.set({ chatHistory: msgs, pendingVoiceMessages: [] });
+      }
+
+      if (!msgs.length) return;
+      if (welcome) welcome.remove();
+      msgs.forEach(m => addMsg(m.text, m.sender, m.images, m.time, true));
+    } catch {}
+  });
 }
 
 // --- Messages ---
@@ -113,7 +122,7 @@ function addMsg(text, sender, images, time, restored) {
 
 // --- Clear ---
 clearBtn.addEventListener('click', () => {
-  localStorage.removeItem(STORAGE_KEY);
+  chrome.storage.local.remove(['chatHistory', 'pendingVoiceMessages']);
   messagesEl.innerHTML = '';
   const w = document.createElement('div');
   w.id = 'welcome';
@@ -231,6 +240,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     };
     pendingElements.push(elementData);
     renderPreviews();
+    sendResponse({ received: true });
+  } else if (msg.type === 'VOICE_TRANSCRIPTION') {
+    const text = msg.text;
+    const elements = msg.elements || [];
+
+    // Display in chat
+    let displayText = text;
+    if (elements.length > 0) {
+      displayText += ' ' + elements.map(() => '#element').join(' ');
+    }
+    addMsg(displayText, 'user', []);
+    showTyping();
+
+    // Clear pending since we're handling it live
+    chrome.storage.local.set({ pendingVoiceMessages: [] });
+    sendResponse({ received: true });
   }
   return true;
 });
@@ -364,6 +389,17 @@ async function pollResponses() {
         removeTyping();
         addMsg(r.text, 'claude', [], null, false);
       }
+      // Notify voice widget that Claude responded (to turn off processing state)
+      if (responses.length > 0) {
+        try {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (tab && tab.id) {
+            chrome.tabs.sendMessage(tab.id, { type: 'CLAUDE_RESPONDED' });
+          }
+        } catch (e) {
+          // Voice widget may not be active
+        }
+      }
     } else {
       setStatus(false);
     }
@@ -391,6 +427,32 @@ document.addEventListener('visibilitychange', () => {
     startPolling();
   } else {
     stopPolling();
+  }
+});
+
+// --- Voice Mode ---
+voiceBtn.addEventListener('click', async () => {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id) return;
+
+    // Inject voice widget
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['voice-widget.js']
+    });
+    await chrome.scripting.insertCSS({
+      target: { tabId: tab.id },
+      files: ['voice-widget.css']
+    });
+
+    // Activate voice widget
+    chrome.tabs.sendMessage(tab.id, {
+      type: 'ACTIVATE_VOICE_MODE',
+      apiBase: API_BASE
+    });
+  } catch (err) {
+    console.error('Failed to activate voice mode:', err);
   }
 });
 

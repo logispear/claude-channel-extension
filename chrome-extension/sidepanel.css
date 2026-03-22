@@ -76,8 +76,21 @@ header .info p .status-dot.online {
   box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
 }
 
-header .settings-btn {
+header .voice-btn {
   margin-left: auto;
+  width: 28px; height: 28px;
+}
+
+header .voice-btn svg {
+  width: 14px; height: 14px;
+}
+
+header .voice-btn:hover {
+  background: rgba(217, 119, 87, 0.1);
+  color: var(--accent);
+}
+
+header .settings-btn {
   width: 28px; height: 28px;
 }
 

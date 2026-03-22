@@ -354,6 +354,62 @@ Bun.serve({
       })
     }
 
+    // Whisper transcription endpoint
+    if (url.pathname === '/api/whisper' && req.method === 'POST') {
+      try {
+        const formData = await req.formData()
+        const audioFile = formData.get('audio') as File | null
+
+        if (!audioFile) {
+          return new Response(JSON.stringify({ error: 'No audio file' }), {
+            status: 400,
+            headers: { 'Content-Type': 'application/json', ...cors },
+          })
+        }
+
+        const apiKey = Bun.env.OPENAI_API_KEY
+        if (!apiKey) {
+          return new Response(JSON.stringify({ error: 'OPENAI_API_KEY not set' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', ...cors },
+          })
+        }
+
+        // Forward to OpenAI Whisper API
+        const whisperFormData = new FormData()
+        whisperFormData.append('file', audioFile, 'audio.webm')
+        whisperFormData.append('model', 'whisper-1')
+
+        const whisperRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: whisperFormData,
+        })
+
+        if (!whisperRes.ok) {
+          const err = await whisperRes.text()
+          console.error('Whisper API error:', err)
+          return new Response(JSON.stringify({ error: 'Whisper API failed' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json', ...cors },
+          })
+        }
+
+        const result = await whisperRes.json()
+        return new Response(JSON.stringify({ text: result.text }), {
+          headers: { 'Content-Type': 'application/json', ...cors },
+        })
+      } catch (err) {
+        console.error('Whisper endpoint error:', err)
+        return new Response(JSON.stringify({ error: 'Server error' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...cors },
+        })
+      }
+    }
+
     // Send a message from the web UI to Claude
     if (url.pathname === '/api/send' && req.method === 'POST') {
       const { text, images } = (await req.json()) as { text: string; images?: string[] }
