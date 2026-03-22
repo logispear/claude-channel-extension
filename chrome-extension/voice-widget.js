@@ -18,6 +18,7 @@
   let analyser = null;
   let silenceTimer = null;
   let audioStream = null;
+  let processingPollTimer = null;
 
   function createWidget() {
     // Double check
@@ -257,6 +258,47 @@
     if (widget) {
       widget.classList.toggle('processing', processing);
     }
+
+    // Manage polling/timeout for processing state
+    if (processing) {
+      startProcessingCheck();
+    } else {
+      stopProcessingCheck();
+    }
+  }
+
+  function startProcessingCheck() {
+    stopProcessingCheck();
+
+    // Poll /api/check every 500ms to detect when Claude responds
+    processingPollTimer = setInterval(async () => {
+      try {
+        const res = await fetch(apiBase + '/api/check');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.pending > 0) {
+            // Claude has responded, turn off processing
+            setProcessingState(false);
+          }
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+    }, 500);
+
+    // Safety timeout after 60 seconds
+    setTimeout(() => {
+      if (widget && widget.classList.contains('processing')) {
+        setProcessingState(false);
+      }
+    }, 60000);
+  }
+
+  function stopProcessingCheck() {
+    if (processingPollTimer) {
+      clearInterval(processingPollTimer);
+      processingPollTimer = null;
+    }
   }
 
   function setRecordingState(recording) {
@@ -439,6 +481,7 @@
   function destroyWidget() {
     document.removeEventListener('mousemove', onMouseMove);
     document.removeEventListener('mouseup', onMouseUp);
+    stopProcessingCheck();
     if (silenceTimer) {
       cancelAnimationFrame(silenceTimer);
       silenceTimer = null;

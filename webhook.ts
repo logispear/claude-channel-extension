@@ -354,6 +354,16 @@ Bun.serve({
       })
     }
 
+    // Check endpoint - returns count of pending responses without consuming them
+    if (url.pathname === '/api/check' && req.method === 'GET') {
+      return new Response(JSON.stringify({ pending: pendingResponses.length }), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...cors,
+        },
+      })
+    }
+
     // Whisper transcription endpoint
     if (url.pathname === '/api/whisper' && req.method === 'POST') {
       try {
